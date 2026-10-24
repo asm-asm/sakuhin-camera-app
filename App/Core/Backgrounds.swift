@@ -61,6 +61,7 @@ final class BackgroundLibrary {
         "wood": "木",
         "fabric": "布",
         "cafe": "カフェ",
+        "home": "おうち",
         "plant": "植物・屋外",
         "stone": "石・紙",
         "outdoor": "屋外",

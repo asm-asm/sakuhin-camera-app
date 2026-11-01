@@ -222,7 +222,8 @@ private struct LiveCameraView: View {
                     .overlay(Circle().stroke(.white, lineWidth: 3).padding(-7))
                     .opacity(camera.isCapturing ? 0.5 : 1)
             }
-            .disabled(camera.status != .running || camera.isCapturing)
+            // ストア画像の撮影モードでは、押せる状態の見た目で表示する
+            .disabled(DemoContent.scene != .live && (camera.status != .running || camera.isCapturing))
             .accessibilityLabel("撮影")
 
             HStack {
@@ -277,6 +278,7 @@ private struct LiveCameraView: View {
     @ViewBuilder
     private var sampleButton: some View {
         #if DEBUG || targetEnvironment(simulator)
+        if DemoContent.scene == nil {
         Button("サンプル") {
             if let image = SampleImage.load() {
                 onCaptured(image)
@@ -284,6 +286,7 @@ private struct LiveCameraView: View {
         }
         .buttonStyle(.bordered)
         .tint(.white)
+        }
         #endif
     }
 

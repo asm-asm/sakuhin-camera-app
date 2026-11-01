@@ -188,7 +188,7 @@ private struct LabeledSlider: View {
     }
 }
 
-private struct BackgroundTile: View {
+struct BackgroundTile: View {
     let item: BackgroundItem
     let isSelected: Bool
     let isLocked: Bool

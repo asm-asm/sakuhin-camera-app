@@ -43,7 +43,10 @@ struct CameraScreen: View {
 private struct LiveCameraView: View {
     let onCaptured: (CGImage) -> Void
 
+    @Environment(EditSession.self) private var session
     @State private var camera = CameraController()
+    @State private var liveBackground: CGImage?
+    @State private var showsBackgroundPicker = false
     @State private var level = MotionLevel()
     @State private var focusPoint: CGPoint?
     @State private var errorMessage: String?
@@ -69,6 +72,26 @@ private struct LiveCameraView: View {
             camera.stop()
             level.stop()
         }
+        .task(id: liveBackgroundKey) {
+            // 選んだ背景（撮影前のプレビュー用に縮小したもの）
+            guard session.showsBackgroundWhileShooting else {
+                liveBackground = nil
+                return
+            }
+            let library = BackgroundLibrary.shared
+            let item = library.item(id: session.composition.backgroundID)
+            let adjustments = session.composition.adjustments
+            liveBackground = await Task.detached(priority: .userInitiated) {
+                Renderer.backgroundPreview(item: item, library: library, canvasWidth: 3024, canvasHeight: 4032,
+                                           adjustments: adjustments, originalImage: nil)
+            }.value
+        }
+        .task(id: liveSegmentationEnabled) {
+            camera.setLiveBackground(enabled: liveSegmentationEnabled)
+        }
+        .sheet(isPresented: $showsBackgroundPicker) {
+            CameraBackgroundPicker()
+        }
         .task(id: focusPoint) {
             guard focusPoint != nil else { return }
             try? await Task.sleep(for: .seconds(1.2))
@@ -84,6 +107,22 @@ private struct LiveCameraView: View {
         }
     }
 
+    private struct LiveBackgroundKey: Equatable {
+        let enabled: Bool
+        let backgroundID: String?
+        let adjustments: BackgroundAdjustments
+    }
+
+    private var liveBackgroundKey: LiveBackgroundKey {
+        LiveBackgroundKey(enabled: session.showsBackgroundWhileShooting,
+                          backgroundID: session.composition.backgroundID,
+                          adjustments: session.composition.adjustments)
+    }
+
+    private var liveSegmentationEnabled: Bool {
+        session.showsBackgroundWhileShooting && camera.status == .running
+    }
+
     @ViewBuilder
     private func content(photoFrame: CGRect) -> some View {
         switch camera.status {
@@ -93,6 +132,24 @@ private struct LiveCameraView: View {
         case .running:
             CameraPreviewView(camera: camera) { point in
                 focusPoint = point
+            }
+            // 作品の部分は本物のカメラ映像のまま、作品以外に選んだ背景を重ねる（縦向きのときだけ）
+            if session.showsBackgroundWhileShooting, level.orientation.isPortrait,
+               let background = liveBackground, let mask = camera.liveBackgroundMask {
+                Image(decorative: background, scale: 1)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: photoFrame.width, height: photoFrame.height)
+                    .clipped()
+                    .mask {
+                        Image(decorative: mask, scale: 1)
+                            .resizable()
+                            .frame(width: photoFrame.width, height: photoFrame.height)
+                            .blur(radius: 1.5)
+                            .luminanceToAlpha()
+                    }
+                    .position(x: photoFrame.midX, y: photoFrame.midY)
+                    .allowsHitTesting(false)
             }
             GuideOverlay(photoFrame: photoFrame, reading: level.reading)
                 .allowsHitTesting(false)
@@ -136,18 +193,51 @@ private struct LiveCameraView: View {
             .accessibilityLabel("撮影")
 
             HStack {
-                Label(level.orientation.isPortrait ? "縦" : "横",
-                      systemImage: level.orientation.isPortrait ? "rectangle.portrait" : "rectangle")
-                    .font(.footnote)
-                    .foregroundStyle(.white)
-                    .accessibilityLabel(level.orientation.isPortrait ? "縦向きで撮影" : "横向きで撮影")
+                backgroundButton
                 Spacer()
-                sampleButton
+                VStack(alignment: .trailing, spacing: 8) {
+                    Label(level.orientation.isPortrait ? "縦" : "横",
+                          systemImage: level.orientation.isPortrait ? "rectangle.portrait" : "rectangle")
+                        .font(.footnote)
+                        .foregroundStyle(.white)
+                        .accessibilityLabel(level.orientation.isPortrait ? "縦向きで撮影" : "横向きで撮影")
+                    sampleButton
+                }
             }
             .padding(.horizontal)
         }
         .frame(height: 110)
         .frame(maxWidth: .infinity)
+    }
+
+    /// 撮影前に背景を選ぶボタン。選んだ背景のサムネイルを表示する。
+    private var backgroundButton: some View {
+        Button {
+            showsBackgroundPicker = true
+        } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.white.opacity(0.15))
+                    if session.showsBackgroundWhileShooting, let liveBackground {
+                        Image(decorative: liveBackground, scale: 1)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 44, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.8), lineWidth: 1.5))
+                Text("背景")
+                    .font(.caption2)
+                    .foregroundStyle(.white)
+            }
+        }
+        .accessibilityLabel("撮影する背景を選ぶ")
     }
 
     /// カメラのないシミュレータと開発用ビルドだけで出す、同梱サンプル写真での動作確認。
@@ -248,5 +338,84 @@ private struct CapturedPreview: View {
             .controlSize(.large)
             .frame(height: 110)
         }
+    }
+}
+
+/// 撮影前に、カメラ画面に重ねて見せる背景を選ぶ。選んだ背景はそのまま背景画面でも使う。
+private struct CameraBackgroundPicker: View {
+    @Environment(EditSession.self) private var session
+    @Environment(SubscriptionStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var showsPaywall = false
+
+    private let library = BackgroundLibrary.shared
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Button {
+                        session.showsBackgroundWhileShooting = false
+                        dismiss()
+                    } label: {
+                        Label("背景なし（そのまま撮る）", systemImage: "camera")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("選んだ背景がカメラ画面に重なって、仕上がりを見ながら撮れます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(library.categories, id: \.self) { category in
+                        categorySection(category)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("撮影する背景")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showsPaywall) {
+                PaywallView()
+            }
+        }
+    }
+
+    /// 元の背景のぼかしは撮影前には作れないので出さない。
+    @ViewBuilder
+    private func categorySection(_ category: String) -> some View {
+        let items = library.items(in: category).filter { $0.kind != .blurredOriginal }
+        if !items.isEmpty {
+            Text(BackgroundLibrary.displayName(ofCategory: category))
+                .font(.headline)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 66), spacing: 10)], spacing: 12) {
+                ForEach(items) { item in
+                    BackgroundTile(
+                        item: item,
+                        isSelected: session.showsBackgroundWhileShooting && session.composition.backgroundID == item.id,
+                        isLocked: item.premium && !store.isPremium
+                    ) {
+                        choose(item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func choose(_ item: BackgroundItem) {
+        if item.premium && !store.isPremium {
+            showsPaywall = true
+            return
+        }
+        session.composition.backgroundID = item.id
+        session.showsBackgroundWhileShooting = true
+        dismiss()
     }
 }

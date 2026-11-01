@@ -14,6 +14,8 @@ final class EditSession {
     private(set) var maskVersion = 0
     /// 背景・調整・影・配置・比率。背景の選択は撮り直しても引き継ぐ。
     var composition = Composition()
+    /// 撮影前に、選んだ背景をカメラ画面に重ねて見せるか。
+    var showsBackgroundWhileShooting = false
 
     func setMask(_ mask: AlphaMask?) {
         self.mask = mask

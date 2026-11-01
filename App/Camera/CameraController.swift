@@ -22,9 +22,14 @@ final class CameraController: NSObject {
 
     private(set) var status: Status = .idle
     private(set) var isCapturing = false
+    /// 撮影前に背景を重ねて見せるためのマスク（背景＝白）。背景を重ねないときは nil。
+    private(set) var liveBackgroundMask: CGImage?
 
     @ObservationIgnored let session = AVCaptureSession()
     @ObservationIgnored private let photoOutput = AVCapturePhotoOutput()
+    @ObservationIgnored private let videoOutput = AVCaptureVideoDataOutput()
+    @ObservationIgnored private let segmenter = LiveSegmenter()
+    @ObservationIgnored private let segmentQueue = DispatchQueue(label: "com.sammy.sakuhincamera.live-segment")
     @ObservationIgnored private let queue = DispatchQueue(label: "com.sammy.sakuhincamera.camera")
     @ObservationIgnored private var device: AVCaptureDevice?
     @ObservationIgnored private var isConfigured = false
@@ -95,6 +100,20 @@ final class CameraController: NSObject {
             }
         }
         rotationCoordinator = coordinator
+    }
+
+    /// 撮影前に選んだ背景を重ねて見せるかどうか。
+    @MainActor
+    func setLiveBackground(enabled: Bool) {
+        if enabled {
+            segmenter.onMask = { [weak self] mask in
+                self?.liveBackgroundMask = mask
+            }
+        } else {
+            segmenter.onMask = nil
+            liveBackgroundMask = nil
+        }
+        segmenter.isEnabled = enabled
     }
 
     /// タップした位置（カメラ座標 0〜1）にピントと露出を合わせる。
@@ -169,6 +188,17 @@ final class CameraController: NSObject {
         if let largest = (allowed.isEmpty ? dimensions : allowed)
             .max(by: { Int($0.width) * Int($0.height) < Int($1.width) * Int($1.height) }) {
             photoOutput.maxPhotoDimensions = largest
+        }
+
+        // 撮影前の背景プレビュー用に、映像のコマも受け取る（縦向きのコマにする）
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
+            videoOutput.setSampleBufferDelegate(segmenter, queue: segmentQueue)
+            if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
         }
 
         subjectAreaObserver = NotificationCenter.default.addObserver(

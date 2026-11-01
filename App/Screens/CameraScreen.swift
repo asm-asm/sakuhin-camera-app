@@ -47,6 +47,7 @@ private struct LiveCameraView: View {
     @State private var camera = CameraController()
     @State private var liveBackground: CGImage?
     @State private var showsBackgroundPicker = DemoContent.scene == .picker
+    @State private var showsPaywall = false
     @State private var level = MotionLevel()
     @State private var focusPoint: CGPoint?
     @State private var errorMessage: String?
@@ -62,6 +63,7 @@ private struct LiveCameraView: View {
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
             }
+            CameraBackgroundStrip(onLockedTap: { showsPaywall = true })
             shutterBar
         }
         .task {
@@ -91,6 +93,9 @@ private struct LiveCameraView: View {
         }
         .sheet(isPresented: $showsBackgroundPicker) {
             CameraBackgroundPicker()
+        }
+        .sheet(isPresented: $showsPaywall) {
+            PaywallView()
         }
         .task(id: focusPoint) {
             guard focusPoint != nil else { return }
@@ -253,25 +258,18 @@ private struct LiveCameraView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(.white.opacity(0.15))
-                    if session.showsBackgroundWhileShooting, let liveBackground {
-                        Image(decorative: liveBackground, scale: 1)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.white)
-                    }
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.white)
                 }
-                .frame(width: 44, height: 56)
+                .frame(width: 44, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.8), lineWidth: 1.5))
-                Text("背景")
+                Text("一覧")
                     .font(.caption2)
                     .foregroundStyle(.white)
             }
         }
-        .accessibilityLabel("撮影する背景を選ぶ")
+        .accessibilityLabel("背景をカテゴリ別の一覧から選ぶ")
     }
 
     /// カメラのないシミュレータと開発用ビルドだけで出す、同梱サンプル写真での動作確認。
@@ -453,5 +451,121 @@ private struct CameraBackgroundPicker: View {
         session.composition.backgroundID = item.id
         session.showsBackgroundWhileShooting = true
         dismiss()
+    }
+}
+
+/// カメラ画面の下に常に出しておく背景の列。左端の「なし」で背景を重ねずに撮る。
+private struct CameraBackgroundStrip: View {
+    let onLockedTap: () -> Void
+
+    @Environment(EditSession.self) private var session
+    @Environment(SubscriptionStore.self) private var store
+
+    private let library = BackgroundLibrary.shared
+
+    /// 元の背景のぼかしは撮影前には作れないので出さない。
+    private var items: [BackgroundItem] {
+        library.items.filter { $0.kind != .blurredOriginal }
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    Button {
+                        session.showsBackgroundWhileShooting = false
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: "nosign")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.white)
+                                .frame(width: 48, height: 64)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.15)))
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(.white, lineWidth: session.showsBackgroundWhileShooting ? 0 : 2.5))
+                            Text("なし")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .accessibilityLabel("背景なしで撮る")
+                    .id("none")
+
+                    ForEach(items) { item in
+                        CameraBackgroundChip(
+                            item: item,
+                            isSelected: session.showsBackgroundWhileShooting && session.composition.backgroundID == item.id,
+                            isLocked: item.premium && !store.isPremium
+                        ) {
+                            if item.premium && !store.isPremium {
+                                onLockedTap()
+                            } else {
+                                session.composition.backgroundID = item.id
+                                session.showsBackgroundWhileShooting = true
+                            }
+                        }
+                        .id(item.id)
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+            .frame(height: 88)
+            .onAppear {
+                if session.showsBackgroundWhileShooting, let id = session.composition.backgroundID {
+                    proxy.scrollTo(id, anchor: .center)
+                }
+            }
+        }
+    }
+}
+
+private struct CameraBackgroundChip: View {
+    let item: BackgroundItem
+    let isSelected: Bool
+    let isLocked: Bool
+    let onTap: () -> Void
+
+    @State private var thumbnail: CGImage?
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 3) {
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if let thumbnail {
+                            Image(decorative: thumbnail, scale: 1)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Color.white.opacity(0.15)
+                        }
+                    }
+                    .frame(width: 48, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white, lineWidth: isSelected ? 2.5 : 0))
+                    if isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.white)
+                            .padding(3)
+                            .background(Circle().fill(.black.opacity(0.6)))
+                            .padding(3)
+                    }
+                }
+                Text(item.name)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1)
+                    .frame(width: 52)
+            }
+        }
+        .accessibilityLabel(item.name)
+        .task(id: item.id) {
+            let library = BackgroundLibrary.shared
+            let item = item
+            thumbnail = await Task.detached(priority: .utility) {
+                BackgroundThumbnail.make(item: item, library: library, original: nil, maxPixelSize: 160)
+            }.value
+        }
     }
 }

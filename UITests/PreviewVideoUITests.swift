@@ -28,16 +28,12 @@ final class PreviewVideoUITests: XCTestCase {
         // 4. 背景を次々に選ぶ
         XCTAssertTrue(app.navigationBars["背景"].waitForExistence(timeout: 30))
         pause(1.5)
-        let canvas = app.otherElements["compositionCanvas"]
-        if canvas.waitForExistence(timeout: 5) {
-            canvas.pinch(withScale: 0.72, velocity: -0.6)
-            pause(1)
-        }
+        // 動画では机置きの背景だけを使う（壁の背景は作品が大きく見えすぎるため）
         for (category, background) in [
-            ("カフェ", "しっくい壁のカフェ"),
-            ("おうち", "北欧風リビング"),
-            ("木", "ラテのある木のテーブル"),
-            ("おうち", "白い壁と観葉植物"),
+            ("カフェ", "ラテのある木のテーブル"),
+            ("布", "ドライフラワーとリネン"),
+            ("季節の背景", "ジンジャーブレッドとキャンディケーン"),
+            ("木", "毛糸と編み針"),
         ] {
             tapIfExists(app.buttons[category])
             pause(0.6)

@@ -11,6 +11,8 @@ struct DemoContent {
     enum Scene: String {
         /// 撮影前に背景を選ぶ画面（カメラ画面の「背景」から開く）
         case picker
+        /// 背景を重ねたまま撮影する画面。カメラの映像の代わりに写真を映し、本物の重ね合わせで表示する
+        case live
         case preview
         case cutout
         case background

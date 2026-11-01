@@ -120,6 +120,7 @@ jobs:
             xcrun simctl io "$UDID" screenshot "store/$name.png"
             xcrun simctl terminate "$UDID" com.sammy.sakuhincamera || true
           }
+          shoot 0_live -demoScene live -demoPremium -demoBackground yarn_01
           shoot 0_picker -demoScene picker -demoPremium -demoBackground yarn_01
           shoot 1_preview -demoScene preview -demoPremium
           shoot 2_cutout -demoScene cutout -demoPremium

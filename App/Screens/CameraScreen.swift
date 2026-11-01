@@ -125,6 +125,52 @@ private struct LiveCameraView: View {
 
     @ViewBuilder
     private func content(photoFrame: CGRect) -> some View {
+        if DemoContent.scene == .live, let demo = DemoContent.shared {
+            demoLiveContent(demo, photoFrame: photoFrame)
+        } else {
+            cameraContent(photoFrame: photoFrame)
+        }
+    }
+
+    /// ストア画像の撮影モード：カメラの映像の代わりに写真を映し、撮影画面と同じ方法で背景を重ねる。
+    private func demoLiveContent(_ demo: DemoContent, photoFrame: CGRect) -> some View {
+        var inverted = demo.mask
+        for i in inverted.values.indices {
+            inverted.values[i] = 255 - inverted.values[i]
+        }
+        let mask = inverted.makeCGImage()
+        return ZStack {
+            Image(decorative: demo.photo, scale: 1)
+                .resizable()
+                .frame(width: photoFrame.width, height: photoFrame.height)
+                .position(x: photoFrame.midX, y: photoFrame.midY)
+            if let background = liveBackground, let mask {
+                backgroundOverlay(background: background, mask: mask, photoFrame: photoFrame)
+            }
+            GuideOverlay(photoFrame: photoFrame, reading: nil)
+        }
+    }
+
+    /// 作品の部分は映像のまま、作品以外に選んだ背景を重ねる。
+    private func backgroundOverlay(background: CGImage, mask: CGImage, photoFrame: CGRect) -> some View {
+        Image(decorative: background, scale: 1)
+            .resizable()
+            .scaledToFill()
+            .frame(width: photoFrame.width, height: photoFrame.height)
+            .clipped()
+            .mask {
+                Image(decorative: mask, scale: 1)
+                    .resizable()
+                    .frame(width: photoFrame.width, height: photoFrame.height)
+                    .blur(radius: 1.5)
+                    .luminanceToAlpha()
+            }
+            .position(x: photoFrame.midX, y: photoFrame.midY)
+            .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func cameraContent(photoFrame: CGRect) -> some View {
         switch camera.status {
         case .idle:
             ProgressView()
@@ -136,20 +182,7 @@ private struct LiveCameraView: View {
             // 作品の部分は本物のカメラ映像のまま、作品以外に選んだ背景を重ねる（縦向きのときだけ）
             if session.showsBackgroundWhileShooting, level.orientation.isPortrait,
                let background = liveBackground, let mask = camera.liveBackgroundMask {
-                Image(decorative: background, scale: 1)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: photoFrame.width, height: photoFrame.height)
-                    .clipped()
-                    .mask {
-                        Image(decorative: mask, scale: 1)
-                            .resizable()
-                            .frame(width: photoFrame.width, height: photoFrame.height)
-                            .blur(radius: 1.5)
-                            .luminanceToAlpha()
-                    }
-                    .position(x: photoFrame.midX, y: photoFrame.midY)
-                    .allowsHitTesting(false)
+                backgroundOverlay(background: background, mask: mask, photoFrame: photoFrame)
             }
             GuideOverlay(photoFrame: photoFrame, reading: level.reading)
                 .allowsHitTesting(false)

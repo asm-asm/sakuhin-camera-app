@@ -49,6 +49,19 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.sammy.sakuhincamera.tests
+  # App Store の紹介動画（App プレビュー）用：本物の画面を自動で操作して録画する
+  SakuhinCameraUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: SakuhinCamera
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sammy.sakuhincamera.uitests
+        TEST_TARGET_NAME: SakuhinCamera
 schemes:
   SakuhinCamera:
     build:
@@ -57,3 +70,11 @@ schemes:
     test:
       targets:
         - SakuhinCameraTests
+  PreviewVideo:
+    build:
+      targets:
+        SakuhinCamera: all
+        SakuhinCameraUITests: [test]
+    test:
+      targets:
+        - SakuhinCameraUITests

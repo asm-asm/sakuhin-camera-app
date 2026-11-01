@@ -133,6 +133,7 @@ struct CompositionCanvas: View {
             .clipped()
             .contentShape(Rectangle())
             .gesture(gesture(scale: k), including: onTransformChange == nil ? .none : .all)
+            .accessibilityIdentifier("compositionCanvas")
             .position(x: rect.midX, y: rect.midY)
         }
     }

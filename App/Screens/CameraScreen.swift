@@ -184,8 +184,8 @@ private struct LiveCameraView: View {
             CameraPreviewView(camera: camera) { point in
                 focusPoint = point
             }
-            // 作品の部分は本物のカメラ映像のまま、作品以外に選んだ背景を重ねる（縦向きのときだけ）
-            if session.showsBackgroundWhileShooting, level.orientation.isPortrait,
+            // 作品の部分は本物のカメラ映像のまま、作品以外に選んだ背景を重ねる
+            if session.showsBackgroundWhileShooting,
                let background = liveBackground, let mask = camera.liveBackgroundMask {
                 backgroundOverlay(background: background, mask: mask, photoFrame: photoFrame)
             }

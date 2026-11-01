@@ -91,15 +91,25 @@ final class CameraController: NSObject {
         layer.session = session
         guard let device else { return }
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: layer)
-        layer.connection?.videoRotationAngle = coordinator.videoRotationAngleForHorizonLevelPreview
+        applyPreviewRotation(coordinator.videoRotationAngleForHorizonLevelPreview, to: layer)
         previewRotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview,
-                                                         options: [.new]) { [weak layer] coordinator, _ in
+                                                         options: [.new]) { [weak self, weak layer] coordinator, _ in
             let angle = coordinator.videoRotationAngleForHorizonLevelPreview
             DispatchQueue.main.async {
-                layer?.connection?.videoRotationAngle = angle
+                guard let layer else { return }
+                self?.applyPreviewRotation(angle, to: layer)
             }
         }
         rotationCoordinator = coordinator
+    }
+
+    /// 画面のプレビューと、背景プレビュー用に切り抜くコマを同じ向きに回す（横持ちでも切り抜き範囲がずれないように）。
+    @MainActor
+    private func applyPreviewRotation(_ angle: CGFloat, to layer: AVCaptureVideoPreviewLayer) {
+        layer.connection?.videoRotationAngle = angle
+        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
+        }
     }
 
     /// 撮影前に選んだ背景を重ねて見せるかどうか。

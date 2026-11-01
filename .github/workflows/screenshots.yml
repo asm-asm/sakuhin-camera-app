@@ -123,8 +123,8 @@ jobs:
           shoot 0_picker -demoScene picker -demoPremium -demoBackground yarn_01
           shoot 1_preview -demoScene preview -demoPremium
           shoot 2_cutout -demoScene cutout -demoPremium
-          shoot 3_background -demoScene background -demoPremium -demoBackground plant_01
-          shoot 4_export -demoScene export -demoPremium -demoBackground plant_01
+          shoot 3_background -demoScene background -demoPremium -demoBackground yarn_01
+          shoot 4_export -demoScene export -demoPremium -demoBackground yarn_01
           cp demo/demo_mask.png store/
 
       - uses: actions/upload-artifact@v4

@@ -46,7 +46,7 @@ private struct LiveCameraView: View {
     @Environment(EditSession.self) private var session
     @State private var camera = CameraController()
     @State private var liveBackground: CGImage?
-    @State private var showsBackgroundPicker = false
+    @State private var showsBackgroundPicker = DemoContent.scene == .picker
     @State private var level = MotionLevel()
     @State private var focusPoint: CGPoint?
     @State private var errorMessage: String?

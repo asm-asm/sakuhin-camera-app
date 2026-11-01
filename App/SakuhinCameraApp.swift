@@ -59,6 +59,14 @@ struct RootView: View {
     /// スクリーンショット撮影モード：本物の写真とマスクを入れて、指定の画面まで進める。
     private func startDemoSceneIfNeeded() {
         guard let scene = DemoContent.scene, let demo = DemoContent.shared, session.originalImage == nil else { return }
+        if scene == .picker {
+            // 撮影前なので写真は入れない。選択中の背景だけ設定し、カメラ画面で背景の一覧を開く
+            if let backgroundID = DemoContent.backgroundID {
+                session.composition.backgroundID = backgroundID
+                session.showsBackgroundWhileShooting = true
+            }
+            return
+        }
         session.originalImage = demo.photo
         session.baseMask = demo.mask
         session.setMask(demo.mask)
@@ -66,7 +74,7 @@ struct RootView: View {
             session.composition.backgroundID = backgroundID
         }
         switch scene {
-        case .preview: path = []
+        case .picker, .preview: path = []
         case .cutout: path = [.cutout]
         case .background: path = [.cutout, .refine, .background]
         case .export: path = [.cutout, .refine, .background, .export]

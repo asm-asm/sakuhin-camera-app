@@ -9,6 +9,8 @@ import ImageIO
 /// マスク（scripts/make-mask.swift の .raw）をアプリの Documents に置いて読み込む。画面と合成処理はすべて本物を使う。
 struct DemoContent {
     enum Scene: String {
+        /// 撮影前に背景を選ぶ画面（カメラ画面の「背景」から開く）
+        case picker
         case preview
         case cutout
         case background

@@ -23,12 +23,12 @@ final class BackgroundLibraryTests: XCTestCase {
         XCTAssertTrue(library.items.contains { $0.premium }, "有料背景がない")
     }
 
-    func testBundledPhotoBackgroundsAreSixFreeAndTwentyFourPremium() {
+    func testBundledPhotoBackgroundsAreSixFreeAndTwentyFivePremium() {
         let photos = BackgroundLibrary.shared.items.filter {
             if case .image = $0.kind { return true } else { return false }
         }
         XCTAssertEqual(photos.filter { !$0.premium }.count, 6)
-        XCTAssertEqual(photos.filter { $0.premium }.count, 24)
+        XCTAssertEqual(photos.filter { $0.premium }.count, 25)
         XCTAssertTrue(photos.allSatisfy { $0.aiGenerated }, "同梱写真は AI 生成として表示する")
     }
 

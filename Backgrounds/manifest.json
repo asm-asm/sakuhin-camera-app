@@ -4,6 +4,7 @@
   { "id": "xmas_03", "name": "赤いクロスと金のリボン", "category": "season", "file": "xmas_03.jpg", "premium": true, "aiGenerated": true },
   { "id": "xmas_04", "name": "ツリーのあるリビング", "category": "season", "file": "xmas_04.jpg", "premium": true, "aiGenerated": true },
   { "id": "xmas_05", "name": "ガーランドの壁", "category": "season", "file": "xmas_05.jpg", "premium": true, "aiGenerated": true },
+  { "id": "xmas_06", "name": "ジンジャーブレッドとキャンディケーン", "category": "season", "file": "xmas_06.jpg", "premium": true, "aiGenerated": true },
   { "id": "wood_01", "name": "明るい木のテーブル", "category": "wood", "file": "wood_01.jpg", "premium": false, "aiGenerated": true },
   { "id": "wood_03", "name": "白い板", "category": "wood", "file": "wood_03.jpg", "premium": false, "aiGenerated": true },
   { "id": "yarn_01", "name": "毛糸と編み針", "category": "wood", "file": "yarn_01.jpg", "premium": true, "aiGenerated": true },

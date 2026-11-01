@@ -62,9 +62,12 @@ jobs:
 
       - name: Record while running the UI test
         run: |
-          mkdir -p video
-          xcrun simctl io "$UDID" recordVideo --codec=h264 --force video/raw.mp4 &
+          mkdir -p video/stills
+          xcrun simctl io "$UDID" recordVideo --codec=hevc --force video/raw.mov &
           REC=$!
+          # 録画が止まっていないか確かめるため、3秒ごとに静止画も撮る
+          ( i=0; while true; do xcrun simctl io "$UDID" screenshot "video/stills/$(printf %03d $i).png" >/dev/null 2>&1; i=$((i+1)); sleep 3; done ) &
+          STILLS=$!
           sleep 3
           set +e
           xcodebuild test-without-building \
@@ -75,6 +78,7 @@ jobs:
             -resultBundlePath video/result.xcresult
           STATUS=$?
           sleep 2
+          kill $STILLS || true
           kill -INT $REC
           wait $REC
           ls -la video
@@ -84,4 +88,6 @@ jobs:
         if: always()
         with:
           name: preview-video
-          path: video/raw.mp4
+          path: |
+            video/raw.mov
+            video/stills

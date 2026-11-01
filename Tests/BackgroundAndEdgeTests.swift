@@ -19,20 +19,21 @@ final class BackgroundLibraryTests: XCTestCase {
         let library = BackgroundLibrary.shared
         let item = try XCTUnwrap(library.defaultItem)
         XCTAssertFalse(item.premium)
+        XCTAssertNotEqual(item.category, "season", "季節ものは最初の背景にしない")
         XCTAssertTrue(library.items.contains { $0.premium }, "有料背景がない")
     }
 
-    func testBundledPhotoBackgroundsAreFiveFreeAndTwentyPremium() {
+    func testBundledPhotoBackgroundsAreSixFreeAndTwentyFourPremium() {
         let photos = BackgroundLibrary.shared.items.filter {
             if case .image = $0.kind { return true } else { return false }
         }
-        XCTAssertEqual(photos.filter { !$0.premium }.count, 5)
-        XCTAssertEqual(photos.filter { $0.premium }.count, 20)
+        XCTAssertEqual(photos.filter { !$0.premium }.count, 6)
+        XCTAssertEqual(photos.filter { $0.premium }.count, 24)
         XCTAssertTrue(photos.allSatisfy { $0.aiGenerated }, "同梱写真は AI 生成として表示する")
     }
 
     func testCategoriesKeepManifestOrder() {
-        XCTAssertEqual(BackgroundLibrary.shared.categories, ["wood", "fabric", "cafe", "home", "plant", "stone", "plain"])
+        XCTAssertEqual(BackgroundLibrary.shared.categories, ["season", "wood", "fabric", "cafe", "home", "plant", "stone", "plain"])
     }
 
     func testGeneratedKinds() throws {

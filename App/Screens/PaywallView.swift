@@ -169,7 +169,7 @@ struct PaywallView: View {
                 }
                 .clipped()
 
-            Text("カフェ・おうち・毛糸…\nスタイリング背景20種が使い放題")
+            Text("カフェ・おうち・毛糸…\nスタイリング背景24種が使い放題")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
@@ -206,7 +206,7 @@ struct PaywallView: View {
                        title: "透かしロゴなし", detail: "そのままSNSやショップに載せられます")
             Divider().padding(.leading, 74)
             benefitRow(icon: "photo.stack.fill", color: Palette.orange,
-                       title: "すべての背景が使える", detail: "スタイリング背景20種＋すべてのカラー")
+                       title: "すべての背景が使える", detail: "スタイリング背景24種＋すべてのカラー")
             Divider().padding(.leading, 74)
             benefitRow(icon: "hand.raised.fill", color: Palette.mint,
                        title: "作品は撮ったまま", detail: "背景だけ変えて、作品はそのまま")

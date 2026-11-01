@@ -58,6 +58,7 @@ final class BackgroundLibrary {
     let directory: URL?
 
     static let categoryNames: [String: String] = [
+        "season": "季節の背景",
         "wood": "木",
         "fabric": "布",
         "cafe": "カフェ",
@@ -97,8 +98,9 @@ final class BackgroundLibrary {
         return items.first { $0.id == id }
     }
 
+    /// 季節もの（クリスマスなど）は最初の背景にしない。
     var defaultItem: BackgroundItem? {
-        items.first { !$0.premium }
+        items.first { !$0.premium && $0.category != "season" } ?? items.first { !$0.premium }
     }
 
     func fileURL(for item: BackgroundItem) -> URL? {

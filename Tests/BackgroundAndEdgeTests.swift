@@ -139,3 +139,13 @@ final class EdgeRefinerTests: XCTestCase {
         XCTAssertEqual(EdgeSoftness.medium.radius(forLongSide: 2016), 4)
     }
 }
+
+/// App Store の「言語」は、アプリに入っている言語の設定から決まる。日本語のアプリとして認識されること。
+final class AppLanguageTests: XCTestCase {
+    func testAppIsJapanese() {
+        let bundle = Bundle(for: EditSession.self)
+        XCTAssertEqual(bundle.developmentLocalization, "ja")
+        XCTAssertTrue(bundle.localizations.contains("ja"), "ja.lproj が入っていない: \(bundle.localizations)")
+        XCTAssertFalse(bundle.localizations.contains("en"), "英語として扱われる設定が残っている")
+    }
+}

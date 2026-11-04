@@ -2,6 +2,8 @@
 name: SakuhinCamera
 options:
   bundleIdPrefix: com.sammy
+  # アプリの言語は日本語（App Store の「言語」表示もここから決まる）
+  developmentLanguage: ja
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -23,6 +25,9 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: 作品用カメラ
+        CFBundleDevelopmentRegion: ja
+        CFBundleLocalizations:
+          - ja
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

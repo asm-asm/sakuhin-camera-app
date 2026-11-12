@@ -28,7 +28,7 @@ final class BackgroundLibraryTests: XCTestCase {
             if case .image = $0.kind { return true } else { return false }
         }
         XCTAssertEqual(photos.filter { !$0.premium }.count, 6)
-        XCTAssertEqual(photos.filter { $0.premium }.count, 25)
+        XCTAssertEqual(photos.filter { $0.premium }.count, 27)
         XCTAssertTrue(photos.allSatisfy { $0.aiGenerated }, "同梱写真は AI 生成として表示する")
     }
 

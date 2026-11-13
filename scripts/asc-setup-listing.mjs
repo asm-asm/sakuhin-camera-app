@@ -5,6 +5,9 @@
 //   ASC_KEY_PATH=... ASC_KEY_ID=... ASC_ISSUER_ID=... node scripts/asc-setup-listing.mjs [--apply] [--screenshots フォルダ] [--version 1.0.1]
 //   --version を付けると、そのバージョンが App Store Connect になければ作る（アップデートの提出用）。
 //   --apply を付けないと、現在の状態を表示するだけで何も変更しない。
+//   --replace-screenshots：登録済みのスクリーンショット（新しい版に前の版から引き継がれたもの）を消して入れ直す。
+//   --preview 動画.mp4：App プレビュー（iPhone 6.9インチ、886x1920・15〜30秒）を入れる（登録済みなら入れ直す）。
+//   --build 番号：処理が終わったそのビルドをこのバージョンに紐づける。
 //
 // API で設定できないもの（App のプライバシー、審査の連絡先）は App Store Connect の画面で行う。
 import { createHash, createSign } from "node:crypto";
@@ -17,6 +20,11 @@ const shotIndex = process.argv.indexOf("--screenshots");
 const screenshotDir = shotIndex > 0 ? process.argv[shotIndex + 1] : null;
 const versionIndex = process.argv.indexOf("--version");
 const newVersionString = versionIndex > 0 ? process.argv[versionIndex + 1] : null;
+const replaceScreenshots = process.argv.includes("--replace-screenshots");
+const previewIndex = process.argv.indexOf("--preview");
+const previewFile = previewIndex > 0 ? process.argv[previewIndex + 1] : null;
+const buildIndex = process.argv.indexOf("--build");
+const buildNumber = buildIndex > 0 ? process.argv[buildIndex + 1] : null;
 
 // --- docs/store-listing.md を読む ---
 const markdown = readFileSync(new URL("../docs/store-listing.md", import.meta.url), "utf8");
@@ -83,6 +91,14 @@ async function getAll(path) {
     url = page.links?.next;
   }
   return items;
+}
+// 予約された場所へファイルを分けて送る（スクリーンショット・プレビュー共通）
+async function uploadParts(reserved, bytes, label) {
+  for (const op of reserved.attributes.uploadOperations) {
+    const headers = Object.fromEntries((op.requestHeaders || []).map((h) => [h.name, h.value]));
+    const res = await fetch(op.url, { method: op.method, headers, body: bytes.subarray(op.offset, op.offset + op.length) });
+    if (!res.ok) throw new Error(`${label} のアップロードに失敗: ${res.status}`);
+  }
 }
 async function step(label, fn) {
   try {
@@ -309,7 +325,11 @@ if (screenshotDir && versionLocalization) {
     let set = sets.find((s) => s.attributes.screenshotDisplayType === "APP_IPHONE_67");
     if (set) {
       const existing = await getAll(`/v1/appScreenshotSets/${set.id}/appScreenshots`);
-      if (existing.length > 0) return `登録済み（${existing.length}枚）`;
+      if (existing.length > 0 && !replaceScreenshots) return `登録済み（${existing.length}枚）`;
+      if (existing.length > 0) {
+        if (!apply) return `登録済み（${existing.length}枚、--apply で入れ直す）`;
+        for (const shot of existing) await api("DELETE", `/v1/appScreenshots/${shot.id}`);
+      }
     }
     if (!apply) return "未登録";
     if (!set) {
@@ -331,11 +351,7 @@ if (screenshotDir && versionLocalization) {
           relationships: { appScreenshotSet: { data: { type: "appScreenshotSets", id: set.id } } },
         },
       })).data;
-      for (const op of reserved.attributes.uploadOperations) {
-        const headers = Object.fromEntries((op.requestHeaders || []).map((h) => [h.name, h.value]));
-        const res = await fetch(op.url, { method: op.method, headers, body: bytes.subarray(op.offset, op.offset + op.length) });
-        if (!res.ok) throw new Error(`${file} のアップロードに失敗: ${res.status}`);
-      }
+      await uploadParts(reserved, bytes, file);
       await api("PATCH", `/v1/appScreenshots/${reserved.id}`, {
         data: {
           type: "appScreenshots",
@@ -345,6 +361,60 @@ if (screenshotDir && versionLocalization) {
       });
     }
     return `${files.length}枚をアップロード`;
+  });
+}
+
+// 9. App プレビュー（iPhone 6.9インチ）。登録済みのものは消して入れ直す
+if (previewFile && versionLocalization) {
+  await step("App プレビュー", async () => {
+    const sets = await getAll(`/v1/appStoreVersionLocalizations/${versionLocalization.id}/appPreviewSets`);
+    let set = sets.find((s) => s.attributes.previewType === "IPHONE_67");
+    const existing = set ? await getAll(`/v1/appPreviewSets/${set.id}/appPreviews`) : [];
+    if (!apply) return existing.length > 0 ? `登録済み（${existing.length}本、--apply で入れ直す）` : "未登録";
+    for (const preview of existing) await api("DELETE", `/v1/appPreviews/${preview.id}`);
+    if (!set) {
+      set = (await api("POST", "/v1/appPreviewSets", {
+        data: {
+          type: "appPreviewSets",
+          attributes: { previewType: "IPHONE_67" },
+          relationships: { appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalization.id } } },
+        },
+      })).data;
+    }
+    const bytes = readFileSync(previewFile);
+    const reserved = (await api("POST", "/v1/appPreviews", {
+      data: {
+        type: "appPreviews",
+        attributes: { fileName: basename(previewFile), fileSize: bytes.length, mimeType: "video/mp4" },
+        relationships: { appPreviewSet: { data: { type: "appPreviewSets", id: set.id } } },
+      },
+    })).data;
+    await uploadParts(reserved, bytes, basename(previewFile));
+    await api("PATCH", `/v1/appPreviews/${reserved.id}`, {
+      data: {
+        type: "appPreviews",
+        id: reserved.id,
+        attributes: { uploaded: true, sourceFileChecksum: createHash("md5").update(bytes).digest("hex") },
+      },
+    });
+    return `${basename(previewFile)} をアップロード（Apple 側の変換に数分かかる）`;
+  });
+}
+
+// 10. ビルドを紐づける（処理が終わったものだけ）
+if (buildNumber) {
+  await step("ビルド", async () => {
+    const current = await api("GET", `/v1/appStoreVersions/${version.id}/build`);
+    if (current.data?.attributes?.version === buildNumber) return `${buildNumber} を紐づけ済み`;
+    const build = (await api(
+      "GET",
+      `/v1/builds?filter[app]=${app.id}&filter[version]=${buildNumber}&filter[preReleaseVersion.version]=${version.attributes.versionString}`,
+    )).data[0];
+    if (!build) return `ビルド ${buildNumber}（${version.attributes.versionString}）が見つからない`;
+    if (build.attributes.processingState !== "VALID") return `ビルド ${buildNumber} は処理中（${build.attributes.processingState}）`;
+    if (!apply) return `ビルド ${buildNumber} を紐づけられる（--apply で実行）`;
+    await api("PATCH", `/v1/appStoreVersions/${version.id}/relationships/build`, { data: { type: "builds", id: build.id } });
+    return `ビルド ${buildNumber} を紐づけ`;
   });
 }
 

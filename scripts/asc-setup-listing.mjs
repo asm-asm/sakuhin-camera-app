@@ -210,8 +210,6 @@ await step("著作権", async () => {
 // 5. 年齢制限（該当なし → 4+）
 await step("年齢制限", async () => {
   const declaration = (await api("GET", `/v1/appInfos/${appInfo.id}/ageRatingDeclaration`)).data;
-  if (declaration.attributes.violenceRealistic === "NONE") return "設定済み";
-  if (!apply) return "未設定";
   const none = [
     "alcoholTobaccoOrDrugUseOrReferences", "contests", "gamblingSimulated", "gunsOrOtherWeapons",
     "medicalOrTreatmentInformation", "profanityOrCrudeHumor", "sexualContentGraphicAndNudity", "sexualContentOrNudity",
@@ -220,8 +218,12 @@ await step("年齢制限", async () => {
   ];
   const no = [
     "advertising", "gambling", "healthOrWellnessTopics", "lootBox", "messagingAndChat", "parentalControls",
-    "ageAssurance", "unrestrictedWebAccess", "userGeneratedContent",
+    "ageAssurance", "unrestrictedWebAccess", "userGeneratedContent", "socialMedia",
   ];
+  // Apple が質問を増やすことがあるので、1つでも未回答（null）があれば設定し直す
+  const unanswered = [...none, ...no].filter((key) => key in declaration.attributes && declaration.attributes[key] === null);
+  if (declaration.attributes.violenceRealistic === "NONE" && unanswered.length === 0) return "設定済み";
+  if (!apply) return unanswered.length ? `未回答あり（${unanswered.join(", ")}）` : "未設定";
   const attributes = {};
   for (const key of none) if (key in declaration.attributes) attributes[key] = "NONE";
   for (const key of no) if (key in declaration.attributes) attributes[key] = false;

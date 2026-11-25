@@ -60,6 +60,7 @@ final class BackgroundLibrary {
     static let categoryNames: [String: String] = [
         "season": "季節の背景",
         "wood": "木",
+        "angle": "ななめ",
         "fabric": "布",
         "cafe": "カフェ",
         "home": "おうち",

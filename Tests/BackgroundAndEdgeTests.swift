@@ -27,13 +27,13 @@ final class BackgroundLibraryTests: XCTestCase {
         let photos = BackgroundLibrary.shared.items.filter {
             if case .image = $0.kind { return true } else { return false }
         }
-        XCTAssertEqual(photos.filter { !$0.premium }.count, 6)
-        XCTAssertEqual(photos.filter { $0.premium }.count, 27)
+        XCTAssertEqual(photos.filter { !$0.premium }.count, 8)
+        XCTAssertEqual(photos.filter { $0.premium }.count, 31)
         XCTAssertTrue(photos.allSatisfy { $0.aiGenerated }, "同梱写真は AI 生成として表示する")
     }
 
     func testCategoriesKeepManifestOrder() {
-        XCTAssertEqual(BackgroundLibrary.shared.categories, ["season", "wood", "fabric", "cafe", "home", "plant", "stone", "plain"])
+        XCTAssertEqual(BackgroundLibrary.shared.categories, ["season", "wood", "angle", "fabric", "cafe", "home", "plant", "stone", "plain"])
     }
 
     func testGeneratedKinds() throws {

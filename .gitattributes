@@ -1,2 +1,5 @@
 * text=auto eol=lf
 *.png binary
+
+# Windows のバッチは CRLF のまま
+*.bat text eol=crlf
